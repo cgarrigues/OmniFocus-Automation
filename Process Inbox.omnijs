@@ -450,7 +450,8 @@ function processPlaceholder(placeholder, templateString, defaultValue, placehold
 
 function valueAsString(value) {
     let type = Object.prototype.toString.call(value).toString()
-    if (type.match(/^\[object (Tag)\]$/)) {
+    console.log('type',type)
+    if (type.match(/^\[object (Tag|Task)\]$/)) {
 	value = value.name
     } else if (type.match(/^\[object (Boolean)\]$/)) {
 	value = value.toString()
@@ -526,10 +527,7 @@ function processTask(task, templateId, templateDefaults) {
 		    let placeholderPromise = placeholderForm.show(note.title+": "+task.name, "OK")
 		    placeholderPromise.then(() => {
 			console.log(templateString)
-			console.log(placeholders)
-			console.log(placeholders.map(placeholder => placeholderForm.values[placeholder]))
 			if (placeholders.map(placeholder => placeholderForm.values[placeholder]).includes('other')) {
-			    console.log('gonzo')
 			    let newDefaults = {}
 			    placeholders.forEach(placeholder => {
 				newDefaults[placeholder] = valueAsString(placeholderForm.values[placeholder])
@@ -538,7 +536,7 @@ function processTask(task, templateId, templateDefaults) {
 			} else {
 			    placeholders.forEach(placeholder => {
 				let re = new RegExp(placeholder, "g")
-				templateString = templateString.replace(re, placeholderForm.values[placeholder])
+				templateString = templateString.replace(re, valueAsString(placeholderForm.values[placeholder]))
 			    })
 			    templateString = templateString.replace(/!true/g, 'false')
 			    templateString = templateString.replace(/!false/g, 'true')
