@@ -1,0 +1,611 @@
+
+/*{
+    "type": "action"
+}*/
+
+function bearUrl(action, args) {
+    var bearToken = '260C08-E19AEB-D3EBFE'
+    // Documentation at https://bear.app/faq/X-callback-url%20Scheme%20documentation/
+    argString = 'token='+bearToken
+    for (var k in args) {
+	argString = argString+'&'+k+'='+encodeURIComponent(args[k])
+    }
+    return URL.fromString('bear://x-callback-url/'+action+'?'+argString)
+}
+
+function saveToDatabase(task, templateString, saveTemplate) {
+    let taskName = task.name
+    let folder = null
+    let match = templateString.match(/@folder\(([^)]*)\)/)
+    if (match) {
+	let folderName = match[1]
+	let folderPath = folderName.split(/\s*:\s*/)
+	let pathElem = folderPath.shift()
+	folder = folderNamed(pathElem)
+	while (pathElem = folderPath.shift()) {
+	    folder = folder.folderNamed(pathElem)
+	}
+    }
+    let projectName = null
+    match = templateString.match(/@project\(([^)]*)\)/)
+    if (match) {
+	projectName = match[1]
+	projectName = ':'+projectName.replace(/\s*:\s*/g, ':')
+	//projectName = projectName.replace(/\s*:\s*/g, ':')
+	console.log(projectName)
+    }
+    let taskId = null
+    match = templateString.match(/@task\(([^)]*)\)/)
+    if (match) {
+	let path=match[1].split(' : ')
+	let name = path.shift()
+	let obj = taskNamed(name) || projectNamed(name) || folderNamed(name)
+	while (name) {
+	    name = path.shift()
+	    if (name) {
+		if (Object.prototype.toString.call(obj) === "[object Project]") {
+		    obj = obj.taskNamed(name)
+		} else {
+		    obj = obj.projectNamed(name) || obj.folderNamed(name)
+		}
+	    }
+	}
+	taskid=obj.id.primaryKey
+    }
+    let target = null
+    let error = null
+    if (folder) {
+	if (projectName) {
+	    error = "Can't define both folder and project in "+taskName
+	} else if (taskid) {
+	    error = "Can't define both folder and task in "+taskName
+	} else {
+	    target = "/folder/"+encodeURIComponent(folder.name)
+	}
+    } else if (projectName) {
+	if (taskid) {
+	    error = "Can't define both project and task in "+taskName
+	} else {
+	    //target = "/project/"+encodeURIComponent(projectName)
+	    target = "/project/"+projectName
+	    //target = ':'+encodeURIComponent(projectName)
+	}
+    } else if (taskid) {
+	target = '/task/'+taskid
+    } else {
+	error = "Need to define either folder or project in "+taskName
+    }
+    if (target) {
+	console.log(target)
+	let omniSaveUrl = URL.fromString("omnifocus:///paste?target=" + target + "&content=" + encodeURIComponent(templateString))
+	console.log(omniSaveUrl)
+	omniSaveUrl.call(() => {
+	    console.log(taskName+" expanded into "+target)
+	    deleteObject(task)
+	    if (saveTemplate) {
+		let bearSaveUrl = bearUrl('create', {'title': taskName,
+						     'text': templateString,
+						     'tags': 'taskpaper,mustmatch',
+						     'show_window': 'no',
+						     'open_note': 'no'})
+		console.log(bearSaveUrl)
+		bearSaveUrl.call(reply => {
+		    console.log(reply.identifier)
+		    console.log(reply.title)
+		    console.log('Saved '+taskName+' as a template')
+		}, error => {
+		    console.error('Problem saving '+taskname+' to bear: '+error)
+		    new Alert('Problem saving '+taskname+' to bear', error).show()
+		})
+	    }
+	}, error => {
+	    console.error("Couldn't paste into OmniFocus: ",error)
+	    new Alert("Couldn't paste into OmniFocus", error).show()
+	})
+    } else {
+	console.error(error)
+	new Alert("SCRIPT ERROR", error).show()
+    }
+}
+
+function fullNamesOfAllTags(tagList, prefix) {
+    var names = []
+    if (tagList) {
+	tagList.forEach(tag => {
+	    let fullName = prefix ? prefix+" : "+tag.name : tag.name
+	    names.push(fullName)
+	    fullNamesOfAllTags(tag.children, fullName).forEach(name => {
+		names.push(name)
+	    })
+	})
+    }
+    return names
+}
+
+function fullNamesOfAllFolders(folderList, prefix) {
+    var names = []
+    if (folderList) {
+	folderList.forEach(folder => {
+	    let fullName = prefix ? prefix+" : "+folder.name : folder.name
+	    names.push(fullName)
+	    fullNamesOfAllFolders(folder.folders, fullName).forEach(name => {
+		names.push(name)
+	    })
+	})
+    }
+    return names
+}
+
+function fullNamesOfAllProjects(foldersAndProjects, prefix) {
+    var names = []
+    if (foldersAndProjects) {
+	foldersAndProjects.forEach(object => {
+	    let fullName = prefix ? prefix+" : "+object.name : object.name
+	    if (object instanceof Project) {
+		names.push(fullName)
+	    } else {
+		fullNamesOfAllProjects(object.children, fullName).forEach(name => {
+		    names.push(name)
+		})
+	    }
+	})
+    }
+    return names
+}
+
+function getTemplateForm(tasks, taskpaperNotes, mustMatchNotes) {
+    let form = new Form()
+    let defaults = []
+    tasks.forEach(task => {
+	let taskName = task.name
+	let templates = ['skip']
+	let names = ['Leave in Inbox']
+	let defaultTemplate = 'skip'
+	defaults[task] = []
+	taskpaperNotes.sort((a, b) => (a.title > b.title) ? 1 : ((b.title > a.title) ? -1 : 0)).forEach(note => {
+	    let mustMatch = false
+	    mustMatchNotes.forEach(mustMatchNote => {
+		if (mustMatchNote.identifier == note.identifier) {
+		    mustMatch = true
+		}
+	    })
+	    if (mustMatch) {
+		if (taskName == note.title) {
+		    defaultTemplate = note.identifier
+		    templates.push(note.identifier)
+		    names.push(note.title)
+		}
+	    } else {
+		defaults[task][note.identifier] = []
+		let placeholder = null
+		if (placeholders = note.title.match(/«[^»]+»/g)) {
+		    let pattern = note.title
+		    placeholders.forEach(placeholder => {
+			pattern = pattern.replace(placeholder,'(.*)')
+		    })
+		    pattern = new RegExp('^'+pattern+'$', 'i')
+		    if (values = taskName.match(pattern)) {
+			values.shift()
+			for (let i=0; i<placeholders.length;i++) {
+			    defaults[task][note.identifier][placeholders[i]] = values[i]
+			}
+			if (defaultTemplate == 'skip') {
+			    defaultTemplate = note.identifier
+			}
+			templates.push(note.identifier)
+			names.push(note.title)
+		    }
+		} else {
+		    templates.push(note.identifier)
+		    names.push(note.title)
+		}
+	    }
+	})
+	let field = new Form.Field.Option(
+	    taskName,
+	    taskName,
+	    templates,
+	    names,
+	    defaultTemplate
+	)
+	form.addField(field)
+    })
+    let promise = form.show("Select Templates", "OK")
+    return({'form': form,
+	    'defaults': defaults,
+	    'promise': promise})
+}
+
+function processTags(placeholder, defaultValue, placeholderLabel, match) {
+    let placeholderValues = []
+    let placeholderNames = []
+    match = match.replace(/^.*\(\s*/, '')
+    let re = new RegExp("([^,]*)( : )"+placeholder)
+    match = match.match(re)
+    if (match) {
+	match = match[1]
+	match = match.replace(/^\s*/, '')
+    }
+    console.log(placeholder+' tags '+match)
+
+    if (match) {
+	let obj
+	match.split(/ : /).forEach(pathElem => {
+	    if (obj) {
+		obj = obj.tagNamed(pathElem)
+	    } else {
+		obj = tagNamed(pathElem)
+	    }
+	})	
+
+	if (defaultValue) {
+	    defaultValue = obj.tagNamed(defaultValue) || defaultValue
+	}
+
+	placeholderValues = obj.children
+	placeholderNames = placeholderValues.map(tag => {
+	    return tag.name
+	})
+    } else {
+	placeholderValues = flattenedTags
+	placeholderNames = fullNamesOfAllTags(tags)
+    }
+    if (defaultValue && typeof(defaultValue) == 'string') {
+	return (processString(placeholder, defaultValue, placeholderLabel))
+    } else {
+
+	placeholderValues.push('other')
+	placeholderNames.push('[New '+placeholderLabel+']')
+
+	return({'names': placeholderNames,
+		'values': placeholderValues,
+		'field': new Form.Field.Option(
+		    placeholder,
+		    placeholderLabel,
+		    placeholderValues,
+		    placeholderNames,
+		    defaultValue||placeholderValues[0])})
+    }
+}
+
+function processFolder(placeholder, defaultValue, placeholderLabel, match) {
+    let placeholderValues = []
+    let placeholderNames = []
+    match = match.replace(/( : )?«.*$/, '').replace(/^.*[\(,]\s*/, '')
+    console.log(placeholder+' folder '+match)
+    
+    if (match) {
+	let obj
+	match.split(/ : /).forEach(pathElem => {
+	    if (obj) {
+		obj = obj.folderNamed(pathElem)
+	    } else {
+		obj = folderNamed(pathElem)
+	    }
+	})	
+
+	if (defaultValue) {
+	    defaultValue = obj.projectNamed(defaultValue) || defaultValue
+	}
+
+	placeholderValues = obj.children
+	placeholderNames = placeholderValues.map(folder => {
+	    return folder.name
+	})
+    } else {
+	placeholderValues = flattenedFolders
+	placeholderNames = fullNamesOfAllFolders(folders)
+    }
+    if (defaultValue && typeof(defaultValue) == 'string') {
+	return (processString(placeholder, defaultValue, placeholderLabel))
+    } else {
+	return({'names': placeholderNames,
+		'values': placeholderValues,
+		'field': new Form.Field.Option(
+		    placeholder,
+		    placeholderLabel,
+		    placeholderValues,
+		    placeholderNames,
+		    defaultValue||placeholderValues[0])})
+    }
+}
+
+function processProject(placeholder, defaultValue, placeholderLabel, match) {
+    let placeholderValues = []
+    let placeholderNames = []
+    match = match.replace(/( : )?«.*$/, '').replace(/^.*[\(,]\s*/, '')
+    console.log(placeholder+' project '+match)
+    
+    if (match) {
+	console.log('match: ',match)
+	let obj
+	match.split(/ : /).forEach(pathElem => {
+	    if (obj) {
+		obj = obj.folderNamed(pathElem) || obj.projectNamed(pathElem)
+	    } else {
+		obj = folderNamed(pathElem)
+	    }
+	})	
+
+	if (defaultValue) {
+	    defaultValue = obj.projectNamed(defaultValue) || defaultValue
+	}
+
+	placeholderValues = obj.projects
+	placeholderNames = placeholderValues.map(folder => {
+	    return folder.name
+	})
+    } else {
+	placeholderValues = flattenedProjects
+	placeholderNames = fullNamesOfAllProjects(library)
+    }
+    if (defaultValue && typeof(defaultValue) == 'string') {
+	return (processString(placeholder, defaultValue, placeholderLabel))
+    } else {
+	return({'names': placeholderNames,
+		'values': placeholderValues,
+		'field': new Form.Field.Option(
+		    placeholder,
+		    placeholderLabel,
+		    placeholderValues,
+		    placeholderNames,
+		    defaultValue||placeholderValues[0])})
+    }
+}
+
+function processSubtask(placeholder, defaultValue, placeholderLabel, match) {
+    let placeholderValues = []
+    let placeholderNames = []
+    match = match.replace(/( : )?«.*$/, '').replace(/^.*[\(,]\s*/, '')
+    console.log(placeholder+' subtask '+match)
+    
+    if (match) {
+	// this probably does't work if the parent task isn't at the top level of the project.
+	console.log('match: ',match)
+	let obj
+	match.split(/ : /).forEach(pathElem => {
+	    if (obj) {
+		obj = obj.folderNamed(pathElem) || obj.projectNamed(pathElem)
+	    } else {
+		obj = folderNamed(pathElem)
+	    }
+	})
+	obj = obj.task
+
+	if (defaultValue) {
+	    defaultValue = obj.taskNamed(defaultValue) || defaultValue
+	}
+
+	placeholderValues = obj.tasks
+	placeholderNames = placeholderValues.map(folder => {
+	    return folder.name
+	})
+    } else {
+	placeholderValues = flattenedTasks
+	// fullNamesOfAllTasks has not been written yet
+	placeholderNames = fullNamesOfAllTasks(library)
+    }
+    if (defaultValue && typeof(defaultValue) == 'string') {
+	return (processString(placeholder, defaultValue, placeholderLabel))
+    } else {
+	return({'names': placeholderNames,
+		'values': placeholderValues,
+		'field': new Form.Field.Option(
+		    placeholder,
+		    placeholderLabel,
+		    placeholderValues,
+		    placeholderNames,
+		    defaultValue||placeholderValues[0])})
+    }
+}
+
+function processBoolean(placeholder, defaultValue, placeholderLabel) {
+    console.log(placeholder+' boolean ')
+    return({'field': new Form.Field.Checkbox(
+		placeholder,
+		placeholderLabel,
+		(defaultValue == 'true'))})
+}
+
+function processDate(placeholder, defaultValue, placeholderLabel) {
+    console.log(placeholder+' date ')
+    if (defaultValue) {
+	let formatter = Formatter.Date.withStyle(Formatter.Date.Style.Short)
+	defaultValue = formatter.dateFromString(defaultValue)
+    }
+    return({'field': new Form.Field.Date(
+		placeholder,
+		placeholderLabel,
+	        defaultValue || new Date())})
+}
+
+function processString(placeholder, defaultValue, placeholderLabel) {
+    return({'field': new Form.Field.String(
+		placeholder,
+		placeholderLabel,
+		defaultValue || placeholder)})
+}
+
+function processPlaceholder(placeholder, templateString, defaultValue, placeholderLabel, placeholderForm) {
+    let placeholderObj
+    let re = new RegExp('@tags\\\([^@)]*'+placeholder+'[,\\\)]')
+    if (match = templateString.match(re)) {
+	placeholderObj = processTags(placeholder, defaultValue, placeholderLabel, match[0])
+    } else if (match = templateString.match(new RegExp('@folder\\\([^@)]*'+placeholder+'[,\\\)]'))) {
+	placeholderObj = processFolder(placeholder, defaultValue, placeholderLabel, match[0])
+    } else if (match = templateString.match(new RegExp('@project\\\([^@)]*'+placeholder+'[,\\\)]'))) {
+	placeholderObj = processProject(placeholder, defaultValue, placeholderLabel, match[0])
+    } else if (match = templateString.match(new RegExp('@task\\\([^@)]*'+placeholder+'[,\\\)]'))) {
+	placeholderObj = processSubtask(placeholder, defaultValue, placeholderLabel, match[0])
+    } else if (templateString.match(new RegExp('@(autodone|dropped|done)\\\([^@)]*'+placeholder+'[,\\\)]'))) {
+	placeholderObj = processBoolean(placeholder, defaultValue, placeholderLabel)
+    } else if (templateString.match(new RegExp('@(defer|due)\\\([^@)]*'+placeholder+'[,\\\)]'))) {
+	placeholderObj = processDate(placeholder, defaultValue, placeholderLabel)
+    } else {
+	placeholderObj = processString(placeholder, defaultValue, placeholderLabel)
+    }
+    placeholderForm.addField(placeholderObj.field)
+    return(placeholderObj)
+}
+
+function valueAsString(value) {
+    let type = Object.prototype.toString.call(value).toString()
+    if (type.match(/^\[object (Tag)\]$/)) {
+	value = value.name
+    } else if (type.match(/^\[object (Boolean)\]$/)) {
+	value = value.toString()
+    } else if (type.match(/^\[object (Date)\]$/)) {
+	value = value.toString()
+	value = value.replace(/:\d\d GMT.*$/, '')
+    } else if (!type.match(/^\[object String\]$/)) {
+	value = placeholderNames[placeholder][placeholderValues[placeholder].indexOf(value)]
+    }
+    return(value)
+}
+
+function processTask(task, templateId, templateDefaults) {
+    if (!(templateId == 'skip')) {
+	let openUrl = bearUrl('open-note', {'id': templateId,
+					    'show_window': 'no'})
+	openUrl.call(note => {
+	    let templateString = note.note.replace(/\n#[^\n]*\n/g, "\n").replace(/^#[^\n]*\n/, "")
+	    if (task.note) {
+		let newNote = '      '+task.note.split("\n").join("\n      ")
+		templateString = templateString.replace("\n", "\n"+newNote+"\n")
+	    }
+	    console.log(templateString)
+	    if (templateString.match(/«.+?»/)) {
+		let placeholderLabels = {}
+		let placeholders = []
+		let placeholderDefaults = {}
+		let match = templateString.match(/^-\s*(«.+?») @/)
+		if (match) {
+		    placeholderDefaults[match[1]] = task.name
+		}
+		
+		let matches = templateString.match(/«(.+?)»/g)
+		if (matches) {
+		    for (match in matches) {
+			let placeholder = matches[match];
+			let hasDefault = placeholder.match(/«(.+?)\|(.+?)»/)
+			if (hasDefault) {
+			    let newPlaceholder = '«'+hasDefault[1]+'»'
+			    templateString = templateString.replace(placeholder,newPlaceholder)
+			    placeholder = newPlaceholder
+			    placeholderDefaults[placeholder] = hasDefault[2]
+			    console.log(placeholder,' default ', placeholderDefaults[placeholder])
+			}
+			if (!placeholderLabels[placeholder]) {
+			    placeholders.push(placeholder);
+			    label = placeholder.replace(/^«/, '').replace(/»$/, '')
+			    placeholderLabels[placeholder] = label
+			}
+			if (templateDefaults[placeholder]) {
+			    placeholderDefaults[placeholder] = templateDefaults[placeholder]
+			}
+		    }
+		    let placeholderForm = new Form()
+		    let placeholderNames = {}
+		    let placeholderValues = {}
+		    placeholders.forEach(placeholder => {
+			let returnValues = processPlaceholder(placeholder,
+							      templateString,
+							      placeholderDefaults[placeholder],
+							      placeholderLabels[placeholder],
+							      placeholderForm)
+			placeholderNames[placeholder] = returnValues.names
+			placeholderValues[placeholder] = returnValues.values
+
+		    })
+		    let saveTemplateField = new Form.Field.Checkbox(
+			'saveTemplate',
+			"Save expansion of "+task.name,
+			false
+		    )
+		    placeholderForm.addField(saveTemplateField)
+		    let placeholderPromise = placeholderForm.show(note.title+": "+task.name, "OK")
+		    placeholderPromise.then(() => {
+			console.log(templateString)
+			console.log(placeholders)
+			console.log(placeholders.map(placeholder => placeholderForm.values[placeholder]))
+			if (placeholders.map(placeholder => placeholderForm.values[placeholder]).includes('other')) {
+			    console.log('gonzo')
+			    let newDefaults = {}
+			    placeholders.forEach(placeholder => {
+				newDefaults[placeholder] = valueAsString(placeholderForm.values[placeholder])
+			    })
+			    processTask(task, templateId, newDefaults)
+			} else {
+			    placeholders.forEach(placeholder => {
+				let re = new RegExp(placeholder, "g")
+				templateString = templateString.replace(re, placeholderForm.values[placeholder])
+			    })
+			    templateString = templateString.replace(/!true/g, 'false')
+			    templateString = templateString.replace(/!false/g, 'true')
+			    let datestamp = Date().toString()
+			    datestamp = datestamp.replace(/:\d\d GMT.*$/, '')
+			    templateString = templateString.replace(/@(dropped|done)\(true\)/g, '@$1('+datestamp+')')
+			    console.log(templateString)
+			    saveToDatabase(task, templateString, placeholderForm.values['saveTemplate'])
+			}
+		    }, error => {
+			console.error('User aborted placeholder form for '+templateId)
+		    })
+		}
+	    } else {
+		saveToDatabase(task, templateString, false)
+	    }
+	}, error => {
+	    console.error('Problem retrieving '+templateId+' from bear: '+error)
+	    new Alert('Problem retrieving '+templateId+' from bear',error)
+	})
+    }
+}
+
+var _ = function() {
+
+    var action = new PlugIn.Action(function(selection) {
+
+	let tasks = inbox.filter(task => {
+	    return task.taskStatus == Task.Status.Available
+	})
+	if (tasks) {
+	    //let taskpaperSearchUrl = bearUrl('open-tag', {"name": "taskpaper"})
+	    let taskpaperSearchUrl = bearUrl('search', {"tag": "taskpaper",
+							"show_window": "no"})
+	    taskpaperSearchUrl.call(taskpaperNotes => {
+		//let mustMatchSearchUrl = bearUrl('open-tag', {"name": "mustmatch"})
+		let mustMatchSearchUrl = bearUrl('open-tag', {"name": "mustmatch",
+							"show_window": "no"})
+		mustMatchSearchUrl.call(mustMatchNotes => {
+		    let templateObj = getTemplateForm(tasks, taskpaperNotes, mustMatchNotes)
+		    tasks.forEach(task => {
+			templateObj.promise.then(() => {
+			    let templateId = templateObj.form.values[task.name]
+			    processTask(task, templateId, templateObj.defaults[task][templateId])
+			})
+		    }, error => {
+			console.error('Problem getting list of must match templates from bear:', error)
+			new Alert('Problem getting list of must match templates from bear',error)
+		    })
+		},
+		error => {
+		    console.error('User aborted template selection')
+		})
+	    }, error => {
+		console.error('Problem getting list of templates from bear:', error)
+		new Alert('Problem getting list of templates from bear',error)
+	    })
+	}
+    });
+    
+    // If needed, uncomment, and add a function that returns true if the current selection is appropriate for the action.
+    /*
+      action.validate = function(selection){
+      
+      };
+    */
+        
+    return action;
+}();
+_;
