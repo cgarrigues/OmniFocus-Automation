@@ -12,7 +12,7 @@ Conditionals can be set up by putting the «placeholder» inside a `@dropped(«p
 
 Either `@defer(«placeholder»)` or `@due(«placeholder»)` will prompt for a date, and you can have a default like this: `@defer(«placeholder|2w»)` to defer 2 weeks. A second task that says `@defer(«placeholder»+3d)` will be deferred 3 days later than the first one.
 
-The Bear notes have a header with the name of the Template and are tagged with **#taskpaper** and sometimes **#mustmatch**. The template name may have placeholders in it. If so, the template is only offered if the task matches the name. The template is also only offered if it has the **#mustmatch** tag.
+The Bear notes have a header with the name of the Template and are tagged with **#taskpaper** and sometimes **#mustmatch**. The template name may have placeholders in it. If so, the template is only offered if the task matches the name. The template with a **#mustmatch** tag is also only offered if it matches.
 
 An expanded task may be saved back to Bear with the **#mustmatch** added to save from re-entering tasks that recur frequently.
 
