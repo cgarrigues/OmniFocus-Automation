@@ -436,6 +436,7 @@ function processString(placeholder, defaultValue, placeholderLabel) {
 function processPlaceholder(placeholder, templateString, defaultValue, placeholderLabel, placeholderForm) {
     let placeholderObj
     let re = new RegExp('@tags\\\([^@)]*'+placeholder+'[,\\\)]')
+    // Have not implemented @estimate(), @repeat-method(), or @repeat-rule(); no intention of implementing deprecated @context()
     if (match = templateString.match(re)) {
 	placeholderObj = processTags(placeholder, defaultValue, placeholderLabel, match[0])
     } else if (match = templateString.match(new RegExp('@folder\\\([^@)]*'+placeholder+'[,\\\)]'))) {
@@ -444,7 +445,7 @@ function processPlaceholder(placeholder, templateString, defaultValue, placehold
 	placeholderObj = processProject(placeholder, defaultValue, placeholderLabel, match[0])
     } else if (match = templateString.match(new RegExp('@task\\\([^@)]*'+placeholder+'[,\\\)]'))) {
 	placeholderObj = processSubtask(placeholder, defaultValue, placeholderLabel, match[0])
-    } else if (templateString.match(new RegExp('@(autodone|dropped|done)\\\([^@)]*'+placeholder+'[,\\\)]'))) {
+    } else if (templateString.match(new RegExp('@(autodone|dropped|done|parallel)\\\([^@)]*'+placeholder+'[,\\\)]'))) {
 	placeholderObj = processBoolean(placeholder, defaultValue, placeholderLabel)
     } else if (templateString.match(new RegExp('@(defer|due)\\\([^@)]*'+placeholder+'[,\\\)]'))) {
 	placeholderObj = processDate(placeholder, defaultValue, placeholderLabel)
