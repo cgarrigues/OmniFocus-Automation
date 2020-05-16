@@ -575,7 +575,7 @@ function processTask(task, templateId, templateDefaults) {
 	let tasks = inbox.filter(task => {
 	    return task.taskStatus == Task.Status.Available
 	})
-	if (tasks) {
+	if (tasks.length > 0) {
 	    //let taskpaperSearchUrl = bearUrl('open-tag', {"name": "taskpaper"})
 	    let taskpaperSearchUrl = bearUrl('search', {"tag": "taskpaper",
 							"show_window": "no"})
@@ -608,7 +608,10 @@ function processTask(task, templateId, templateDefaults) {
     action.validate = function(selection, sender){
 	// validation code
 	// selection options: tasks, projects, folders, tags
-	return (inbox.length > 0)
+	let tasks = inbox.filter(task => {
+	    return task.taskStatus == Task.Status.Available
+	})
+	return (tasks.length > 0)
     };
         
     return action;
