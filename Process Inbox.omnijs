@@ -50,28 +50,28 @@ function saveToDatabase(task, templateString, saveTemplate) {
 		}
 	    }
 	}
-	taskid=obj.id.primaryKey
+	taskId=obj.id.primaryKey
     }
     let target = null
     let error = null
     if (folder) {
 	if (projectName) {
 	    error = "Can't define both folder and project in "+taskName
-	} else if (taskid) {
+	} else if (taskId) {
 	    error = "Can't define both folder and task in "+taskName
 	} else {
 	    target = "/folder/"+encodeURIComponent(folder.name)
 	}
     } else if (projectName) {
-	if (taskid) {
+	if (taskId) {
 	    error = "Can't define both project and task in "+taskName
 	} else {
 	    //target = "/project/"+encodeURIComponent(projectName)
 	    target = "/project/"+projectName
 	    //target = ':'+encodeURIComponent(projectName)
 	}
-    } else if (taskid) {
-	target = '/task/'+taskid
+    } else if (taskId) {
+	target = '/task/'+taskId
     } else {
 	error = "Need to define either folder or project in "+taskName
     }
