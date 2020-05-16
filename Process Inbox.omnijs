@@ -1,6 +1,13 @@
 
 /*{
-    "type": "action"
+	"type": "action",
+	"targets": ["omnifocus"],
+	"author": "Chris Garrigues",
+	"identifier": "com.deepeddy.processinbox",
+	"version": "1.0",
+	"description": "Run items in the inbox through a template system",
+	"label": "Process Inbox",
+	"shortLabel": "Process Inbox"
 }*/
 
 function bearUrl(action, args) {
@@ -560,10 +567,11 @@ function processTask(task, templateId, templateDefaults) {
     }
 }
 
-var _ = function() {
-
-    var action = new PlugIn.Action(function(selection) {
-
+(() => {
+    var action = new PlugIn.Action(function(selection, sender) {
+	// action code
+	// selection options: tasks, projects, folders, tags
+	document.windows[0].perspective = Perspective.BuiltIn.Inbox
 	let tasks = inbox.filter(task => {
 	    return task.taskStatus == Task.Status.Available
 	})
@@ -597,13 +605,12 @@ var _ = function() {
 	}
     });
     
-    // If needed, uncomment, and add a function that returns true if the current selection is appropriate for the action.
-    /*
-      action.validate = function(selection){
-      
-      };
-    */
+    action.validate = function(selection, sender){
+	// validation code
+	// selection options: tasks, projects, folders, tags
+	return (inbox.length > 0)
+    };
         
     return action;
-}();
-_;
+})();
+
