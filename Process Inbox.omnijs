@@ -73,9 +73,7 @@ function saveToDatabase(task, templateString, saveTemplate) {
 	if (taskId) {
 	    error = "Can't define both project and task in "+taskName
 	} else {
-	    //target = "/project/"+encodeURIComponent(projectName)
-	    target = "/project/"+projectName
-	    //target = ':'+encodeURIComponent(projectName)
+	    target = "/project/"+encodeURIComponent(projectName)
 	}
     } else if (taskId) {
 	target = '/task/'+taskId
