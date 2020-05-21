@@ -466,16 +466,15 @@ function valueAsString(value) {
     let type = Object.prototype.toString.call(value).toString()
     console.log('type',type)
     if (type.match(/^\[object (Tag|Task)\]$/)) {
-	value = value.name
+	return(value.name)
     } else if (type.match(/^\[object (Boolean)\]$/)) {
-	value = value.toString()
+	return(value.toString())
     } else if (type.match(/^\[object (Date)\]$/)) {
-	value = value.toString()
-	value = value.replace(/:\d\d GMT.*$/, '')
-    } else if (!type.match(/^\[object String\]$/)) {
-	value = placeholderNames[placeholder][placeholderValues[placeholder].indexOf(value)]
+	return(value.toString().replace(/:\d\d GMT.*$/, ''))
+    } else if (type.match(/^\[object String\]$/)) {
+	return(value)
     }
-    return(value)
+    return(false)
 }
 
 function processTask(task, templateId, templateDefaults) {
@@ -544,13 +543,15 @@ function processTask(task, templateId, templateDefaults) {
 			if (placeholders.map(placeholder => placeholderForm.values[placeholder]).includes('other')) {
 			    let newDefaults = {}
 			    placeholders.forEach(placeholder => {
-				newDefaults[placeholder] = valueAsString(placeholderForm.values[placeholder])
+				newDefaults[placeholder] = valueAsString(placeholderForm.values[placeholder])||placeholderNames[placeholder][placeholderValues[placeholder].indexOf(value)]
 			    })
 			    processTask(task, templateId, newDefaults)
 			} else {
+			    console.log('baz')
+			    console.log(placeholders)
 			    placeholders.forEach(placeholder => {
 				let re = new RegExp(placeholder, "g")
-				templateString = templateString.replace(re, valueAsString(placeholderForm.values[placeholder]))
+				templateString = templateString.replace(re, valueAsString(placeholderForm.values[placeholder])||placeholderNames[placeholder][placeholderValues[placeholder].indexOf(placeholderForm.values[placeholder])])
 			    })
 			    templateString = templateString.replace(/!true/g, 'false')
 			    templateString = templateString.replace(/!false/g, 'true')
