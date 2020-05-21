@@ -86,8 +86,14 @@ function saveToDatabase(task, templateString, saveTemplate) {
 	console.log(target)
 	let omniSaveUrl = URL.fromString("omnifocus:///paste?target=" + target + "&content=" + encodeURIComponent(templateString))
 	console.log(omniSaveUrl)
-	omniSaveUrl.call(() => {
+	omniSaveUrl.call(taskUrl => {
 	    console.log(taskName+" expanded into "+target)
+	    if (task.attachments) {
+		newTask = flattenedTasks.find(task => task.id.primaryKey == taskUrl.split('/').pop())
+		task.attachments.forEach(attachment => {
+		    newTask.addAttachment(attachment)
+		})
+	    }
 	    deleteObject(task)
 	    if (saveTemplate) {
 		let bearSaveUrl = bearUrl('create', {'title': taskName,
