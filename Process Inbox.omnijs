@@ -89,7 +89,7 @@ function saveToDatabase(task, templateString, saveTemplate) {
 	omniSaveUrl.call(taskUrl => {
 	    console.log(taskName+" expanded into "+target)
 	    if (task.attachments) {
-		newTask = flattenedTasks.find(task => task.id.primaryKey == taskUrl.split('/').pop())
+		newTask = Task.byIdentifier(taskUrl.split('/').pop())
 		task.attachments.forEach(attachment => {
 		    newTask.addAttachment(attachment)
 		})
