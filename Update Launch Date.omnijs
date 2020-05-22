@@ -1,0 +1,74 @@
+
+/*{
+	"type": "action",
+	"targets": ["omnifocus"],
+	"author": "Chris Garrigues",
+	"identifier": "com.deepeddy.updatelaunch",
+	"version": "1.0",
+	"description": "Update the launch date and other dependent dates.",
+	"label": "Update Project Defer Dates",
+	"shortLabel": "Update Launch"
+}*/
+
+(() => {
+    
+    var cal = Calendar.current
+    var back2weeks = new DateComponents()
+    back2weeks.day = -14
+    var forward1month = new DateComponents()
+    forward1month.month = 1
+
+    var action = new PlugIn.Action((selection) => {
+	let projects = new Set(selection.projects)
+	selection.tasks.forEach(task => {
+	    projects.add(task.containingProject)
+	})
+	if (projects.size > 0) {
+	    projects.forEach((project) => {
+		let launchProject = project.taskNamed(project.name + ' Launch')
+		if (launchProject) {
+		    let actualLaunchTask = launchProject.taskNamed(project.name + ' Actual Launch')
+		    let date = (actualLaunchTask ? actualLaunchTask.deferDate : new Date())
+		    let inputForm = new Form()
+		    let dateField = new Form.Field.Date("date", "Date", date)
+		    inputForm.addField(dateField)
+		    let formPromise = inputForm.show("New target date for " + project.name, "Update Date")
+		    formPromise.then(() => {
+			let newLaunchDate = inputForm.values["date"]
+			if (actualLaunchTask) {
+			    actualLaunchTask.deferDate = newLaunchDate
+			} else {
+			    console.log('No actual launch task')
+			}		    
+			let prelaunchTask = launchProject.taskNamed('Schedule Pre-Launch Call for ' + project.name)
+			if (prelaunchTask) {
+			    prelaunchTask.deferDate = cal.dateByAddingDateComponents(newLaunchDate, back2weeks)
+			} else {
+			    console.log('no prelaunch task')
+			}
+			let handoffTask = launchProject.taskNamed('Hand Off ' + project.name + ' to CSM')
+			handoffTask.deferDate = cal.dateByAddingDateComponents(newLaunchDate, forward1month)
+		    })
+		} else {
+		    alert = new Alert('Whoops', project.name + ' is not an onboarding project')
+		    alert.show()
+		}
+	    })
+	} else {
+	    alert = new Alert('Whoops', 'Select an onboarding project')
+	    alert.show()
+	}
+    });
+    
+    action.validate = function(selection, sender) {
+	// validation code
+	// selection options: tasks, projects, folders, tags
+	let projects = new Set(selection.projects)
+	selection.tasks.forEach(task => {
+	    projects.add(task.containingProject)
+	})
+	return(projects.size > 0)
+    };
+    
+    return action;
+})();
