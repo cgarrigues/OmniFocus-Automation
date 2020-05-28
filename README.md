@@ -6,5 +6,5 @@ There is documentation to be found in [the wiki](https://github.com/cgarrigues/O
 
 So far I have written:
 
-* [Process Inbox](wiki/Process-Inbox)
-* [Update Launch Date](wiki/Update-Launch-Date)
+* [Process Inbox](https://github.com/cgarrigues/OmniFocus-Automation/wiki/Process-Inbox)
+* [Update Launch Date](https://github.com/cgarrigues/OmniFocus-Automation/wiki/Update-Launch-Date)
