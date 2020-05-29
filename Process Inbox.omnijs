@@ -96,7 +96,7 @@ function saveToDatabase(task, templateString, saveTemplate) {
 	    if (saveTemplate) {
 		let bearSaveUrl = bearUrl('create', {'title': taskName,
 						     'text': templateString,
-						     'tags': 'taskpaper,mustmatch',
+						     'tags': 'TaskPaper,TaskPaper/MustMatch',
 						     'show_window': 'no',
 						     'open_note': 'no'})
 		console.log(bearSaveUrl)
@@ -582,13 +582,13 @@ function processTask(task, templateId, templateDefaults) {
 	    return task.taskStatus == Task.Status.Available
 	})
 	if (tasks.length > 0) {
-	    //let taskpaperSearchUrl = bearUrl('open-tag', {"name": "taskpaper"})
-	    let taskpaperSearchUrl = bearUrl('search', {"tag": "taskpaper",
-							"show_window": "no"})
+	    //let taskpaperSearchUrl = bearUrl('open-tag', {'name': 'TaskPaper'})
+	    let taskpaperSearchUrl = bearUrl('search', {'tag': 'TaskPaper',
+							'show_window': 'no'})
 	    taskpaperSearchUrl.call(taskpaperNotes => {
-		//let mustMatchSearchUrl = bearUrl('open-tag', {"name": "mustmatch"})
-		let mustMatchSearchUrl = bearUrl('open-tag', {"name": "mustmatch",
-							"show_window": "no"})
+		//let mustMatchSearchUrl = bearUrl('open-tag', {'name': 'TaskPaper/MustMatch'})
+		let mustMatchSearchUrl = bearUrl('search', {'tag': 'TaskPaper/MustMatch',
+							    'show_window': 'no'})
 		mustMatchSearchUrl.call(mustMatchNotes => {
 		    let templateObj = getTemplateForm(tasks, taskpaperNotes, mustMatchNotes)
 		    tasks.forEach(task => {
@@ -598,7 +598,7 @@ function processTask(task, templateId, templateDefaults) {
 			})
 		    }, error => {
 			console.error('Problem getting list of must match templates from bear:', error)
-			new Alert('Problem getting list of must match templates from bear',error)
+			new Alert('Problem getting list of must match templates from bear', error)
 		    })
 		},
 		error => {
@@ -606,7 +606,7 @@ function processTask(task, templateId, templateDefaults) {
 		})
 	    }, error => {
 		console.error('Problem getting list of templates from bear:', error)
-		new Alert('Problem getting list of templates from bear',error)
+		new Alert('Problem getting list of templates from bear', error)
 	    })
 	}
     });
