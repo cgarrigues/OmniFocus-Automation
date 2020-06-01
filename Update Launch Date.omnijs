@@ -27,7 +27,7 @@
 	    projects.forEach((project) => {
 		let launchProject = project.taskNamed(project.name + ' Launch')
 		if (launchProject) {
-		    let actualLaunchTask = launchProject.taskNamed(project.name + ' Actual Launch')
+		    let actualLaunchTask = launchProject.taskNamed(project.name + ' Actual Launch ')
 		    let date = (actualLaunchTask ? actualLaunchTask.deferDate : new Date())
 		    let inputForm = new Form()
 		    let dateField = new Form.Field.Date("date", "Date", date)
@@ -40,13 +40,13 @@
 			} else {
 			    console.log('No actual launch task')
 			}		    
-			let prelaunchTask = launchProject.taskNamed('Schedule Pre-Launch Call for ' + project.name)
+			let prelaunchTask = launchProject.taskNamed('Schedule Pre-Launch Call for ' + project.name + ' ')
 			if (prelaunchTask) {
 			    prelaunchTask.deferDate = cal.dateByAddingDateComponents(newLaunchDate, back2weeks)
 			} else {
 			    console.log('no prelaunch task')
 			}
-			let handoffTask = launchProject.taskNamed('Hand Off ' + project.name + ' to CSM')
+			let handoffTask = launchProject.taskNamed('Hand Off ' + project.name + ' to CSM ')
 			handoffTask.deferDate = cal.dateByAddingDateComponents(newLaunchDate, forward1month)
 		    })
 		} else {
